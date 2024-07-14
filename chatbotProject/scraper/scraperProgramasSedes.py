@@ -1,202 +1,102 @@
 import requests
 from bs4 import BeautifulSoup
-from .models import  SubMenu, SubSubMenu, sub3menu
+from .models import SubMenu, SubSubMenu, sub3menu
+import logging
 
-def scrape_medellin():
-    url = "https://www.cesde.edu.co/sedes/medellin/"
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
+
+def update_or_create_entry(model, filter_kwargs, update_kwargs):
+    try:
+        entry, created = model.objects.update_or_create(
+            **filter_kwargs,
+            defaults=update_kwargs
+        )
+        return entry, created
+    except Exception as e:
+        logger.error(f"Error al actualizar o crear entrada en {model.__name__}: {e}")
+        return None, False
+
+def scrape_location(url, location_title):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    programasAcordeon = soup.find('div', class_='programas__accordeon')
-    programas = programasAcordeon.find_all('article', class_='programas__accordeon__item')
-
-    submenu_entry = SubMenu.objects.filter(title='Medellín').first()
-    if not submenu_entry:
-        print("No se encontró el SubMenu con el título 'Medellín'")
+    programas_acordeon = soup.find('div', class_='programas__accordeon')
+    if not programas_acordeon:
+        logger.warning(f"No se encontró el acordeón de programas en la URL: {url}")
         return
 
-    for programasItem in programas:
-        extract = programasItem.find('h3')
-        subsub_title = extract.get_text(strip=True)
+    programas = programas_acordeon.find_all('article', class_='programas__accordeon__item')
 
-        subsubmenu_entry, created = SubSubMenu.objects.update_or_create(
-            submenu=submenu_entry,
-            title=subsub_title,
-            defaults={'link': ' ', 'active': True}
-        )
-
-        contentExtract = programasItem.find('div', class_='text__content')
-        content = contentExtract.get_text(strip=True)
-        escuela = programasItem.find('h4').get_text(strip=True)
-        link = programasItem.find('a')['href']
-
-        sub3menu.objects.update_or_create(
-            subsubmenu=subsubmenu_entry,
-            escuela=escuela,
-            defaults={'content': content, 'link': link}
-        )
-def scrape_bello():
-    url = "https://www.cesde.edu.co/sedes/bello/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    programasAcordeon = soup.find('div', class_='programas__accordeon')
-    programas = programasAcordeon.find_all('article', class_='programas__accordeon__item')
-
-    submenu_entry = SubMenu.objects.filter(title='Bello').first()
+    submenu_entry = SubMenu.objects.filter(title=location_title).first()
     if not submenu_entry:
-        print("No se encontró el SubMenu con el título 'Bello'")
+        logger.warning(f"No se encontró el SubMenu con el título '{location_title}'")
         return
 
-    for programasItem in programas:
-        extract = programasItem.find('h3')
-        subsub_title = extract.get_text(strip=True)
+    # Desactivar las entradas existentes específicas de este SubMenu antes de actualizar
+    subsubmenus_to_update = SubSubMenu.objects.filter(submenu=submenu_entry)
+    sub3menus_to_update = sub3menu.objects.filter(subsubmenu__submenu=submenu_entry)
 
-        subsubmenu_entry, created = SubSubMenu.objects.update_or_create(
-            submenu=submenu_entry,
-            title=subsub_title,
-            defaults={'link': ' ', 'active': True}
+    subsubmenus_to_update.update(active=False)
+    sub3menus_to_update.update(active=False)
+
+    for programa_item in programas:
+        extract = programa_item.find('h3')
+        subsub_title = extract.get_text(strip=True) if extract else 'Sin título'
+        logger.info(f"Procesando SubSubMenu: {subsub_title}")
+
+        # Actualizar o crear subsubmenu_entry
+        subsubmenu_entry, created = update_or_create_entry(
+            SubSubMenu,
+            {'submenu': submenu_entry, 'title': subsub_title},
+            {'link': ' ', 'active': True}
         )
+        if not subsubmenu_entry:
+            continue
+        logger.info(f"{'Creado' if created else 'Actualizado'} SubSubMenu: {subsub_title}")
 
-        contentExtract = programasItem.find('div', class_='text__content')
-        content = contentExtract.get_text(strip=True)
-        escuela = programasItem.find('h4').get_text(strip=True)
-        link = programasItem.find('a')['href']
+        content_extract = programa_item.find('div', class_='text__content')
+        content = content_extract.get_text(strip=True) if content_extract else 'Sin contenido'
+        escuela_extract = programa_item.find('h4')
+        escuela = escuela_extract.get_text(strip=True) if escuela_extract else 'Sin escuela'
+        link = programa_item.find('a')['href'] if programa_item.find('a') else ''
+        logger.info(f"Procesando Sub3Menu: {escuela} - {content} - {link}")
 
-        sub3menu.objects.update_or_create(
-            subsubmenu=subsubmenu_entry,
-            escuela=escuela,
-            defaults={'content': content, 'link': link}
+        # Actualizar o crear sub3menu_entry
+        sub3menu_entry, created = update_or_create_entry(
+            sub3menu,
+            {'subsubmenu': subsubmenu_entry, 'escuela': escuela},
+            {'content': content, 'link': link, 'active': True}
         )
-def scrape_rionegro():
-    url = "https://www.cesde.edu.co/sedes/rionegro/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+        if not sub3menu_entry:
+            continue
+        logger.info(f"{'Creado' if created else 'Actualizado'} Sub3Menu: {escuela} - {content} - {link}")
 
-    programasAcordeon = soup.find('div', class_='programas__accordeon')
-    programas = programasAcordeon.find_all('article', class_='programas__accordeon__item')
+    # Eliminar las entradas específicas de este SubMenu que no se actualizaron (que ya no están activas)
+    subsubmenus_to_update.filter(active=False).delete()
+    sub3menus_to_update.filter(active=False).delete()
 
-    submenu_entry = SubMenu.objects.filter(title='Rionegro').first()
-    if not submenu_entry:
-        print("No se encontró el SubMenu con el título 'Bello'")
-        return
+def scrape_sedes():
+    def scrape_medellin():
+        scrape_location("https://www.cesde.edu.co/sedes/medellin/", "Medellín")
+    scrape_medellin()
 
-    for programasItem in programas:
-        extract = programasItem.find('h3')
-        subsub_title = extract.get_text(strip=True)
+    def scrape_bello():
+        scrape_location("https://www.cesde.edu.co/sedes/bello/", "Bello")
+    scrape_bello()
 
-        subsubmenu_entry, created = SubSubMenu.objects.update_or_create(
-            submenu=submenu_entry,
-            title=subsub_title,
-            defaults={'link': ' ', 'active': True}
-        )
+    def scrape_rionegro():
+        scrape_location("https://www.cesde.edu.co/sedes/rionegro/", "Rionegro")
+    scrape_rionegro()
 
-        contentExtract = programasItem.find('div', class_='text__content')
-        content = contentExtract.get_text(strip=True)
-        escuela = programasItem.find('h4').get_text(strip=True)
-        link = programasItem.find('a')['href']
+    def scrape_pintada():
+        scrape_location("https://www.cesde.edu.co/sedes/pintada/", "La Pintada")
+    scrape_pintada()
 
-        sub3menu.objects.update_or_create(
-            subsubmenu=subsubmenu_entry,
-            escuela=escuela,
-            defaults={'content': content, 'link': link}
-        )
-def scrape_pintada():
-    url = "https://www.cesde.edu.co/sedes/pintada/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    def scrape_apartado():
+        scrape_location("https://www.cesde.edu.co/sedes/apartado/", "Apartadó")
+    scrape_apartado()
 
-    programasAcordeon = soup.find('div', class_='programas__accordeon')
-    programas = programasAcordeon.find_all('article', class_='programas__accordeon__item')
-
-    submenu_entry = SubMenu.objects.filter(title='La Pintada').first()
-    if not submenu_entry:
-        print("No se encontró el SubMenu con el título 'Pintada'")
-        return
-
-    for programasItem in programas:
-        extract = programasItem.find('h3')
-        subsub_title = extract.get_text(strip=True)
-
-        subsubmenu_entry, created = SubSubMenu.objects.update_or_create(
-            submenu=submenu_entry,
-            title=subsub_title,
-            defaults={'link': ' ', 'active': True}
-        )
-
-        contentExtract = programasItem.find('div', class_='text__content')
-        content = contentExtract.get_text(strip=True)
-        escuela = programasItem.find('h4').get_text(strip=True)
-        link = programasItem.find('a')['href']
-
-        sub3menu.objects.update_or_create(
-            subsubmenu=subsubmenu_entry,
-            escuela=escuela,
-            defaults={'content': content, 'link': link}
-        )
-def scrape_apartado():
-    url = "https://www.cesde.edu.co/sedes/apartado/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    programasAcordeon = soup.find('div', class_='programas__accordeon')
-    programas = programasAcordeon.find_all('article', class_='programas__accordeon__item')
-
-    submenu_entry = SubMenu.objects.filter(title='Apartadó').first()
-    if not submenu_entry:
-        print("No se encontró el SubMenu con el título 'Apartadó'")
-        return
-
-    for programasItem in programas:
-        extract = programasItem.find('h3')
-        subsub_title = extract.get_text(strip=True)
-
-        subsubmenu_entry, created = SubSubMenu.objects.update_or_create(
-            submenu=submenu_entry,
-            title=subsub_title,
-            defaults={'link': ' ', 'active': True}
-        )
-
-        contentExtract = programasItem.find('div', class_='text__content')
-        content = contentExtract.get_text(strip=True)
-        escuela = programasItem.find('h4').get_text(strip=True)
-        link = programasItem.find('a')['href']
-
-        sub3menu.objects.update_or_create(
-            subsubmenu=subsubmenu_entry,
-            escuela=escuela,
-            defaults={'content': content, 'link': link}
-        )
-def scrape_bogota():
-    url = "https://www.cesde.edu.co/sedes/bogota/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    programasAcordeon = soup.find('div', class_='programas__accordeon')
-    programas = programasAcordeon.find_all('article', class_='programas__accordeon__item')
-
-    submenu_entry = SubMenu.objects.filter(title='Bogotá').first()
-    if not submenu_entry:
-        print("No se encontró el SubMenu con el título 'Bogotá'")
-        return
-
-    for programasItem in programas:
-        extract = programasItem.find('h3')
-        subsub_title = extract.get_text(strip=True)
-
-        subsubmenu_entry, created = SubSubMenu.objects.update_or_create(
-            submenu=submenu_entry,
-            title=subsub_title,
-            defaults={'link': ' ', 'active': True}
-        )
-
-        contentExtract = programasItem.find('div', class_='text__content')
-        content = contentExtract.get_text(strip=True)
-        escuela = programasItem.find('h4').get_text(strip=True)
-        link = programasItem.find('a')['href']
-
-        sub3menu.objects.update_or_create(
-            subsubmenu=subsubmenu_entry,
-            escuela=escuela,
-            defaults={'content': content, 'link': link}
-        )
+    def scrape_bogota():
+        scrape_location("https://www.cesde.edu.co/sedes/bogota/", "Bogotá")
+    scrape_bogota()
