@@ -17,6 +17,8 @@ Info: La parte que se encarga de el modelo que respondera las preguntas de los u
 # NOTA:
 - Si se siguen estos pasos de ejecucion no deberia de dar problemas
 ### Lista de comandos
+- virtualenv venv
+- pip install -r requirements.txt
 - .\venv\Scripts\activate
 - python manage.py makemigrations
 - python manage.py migrate
