@@ -1,14 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
-from .models import SubMenu, SubSubMenu, sub3menu
+from .models import Menu, SubMenu, SubSubMenu, sub3menu
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
-
-def get_soup(url):
-    response = requests.get(url)
-    return BeautifulSoup(response.content, 'html.parser')
 
 def update_or_create_entry(model, filter_kwargs, update_kwargs):
     try:
@@ -20,6 +16,58 @@ def update_or_create_entry(model, filter_kwargs, update_kwargs):
     except Exception as e:
         logger.error(f"Error al actualizar o crear entrada en {model.__name__}: {e}")
         return None, False
+
+def get_soup(url):
+    response = requests.get(url)
+    return BeautifulSoup(response.content, 'html.parser')
+
+def scrape_navigation(menu_id, ul_class, full_scraping):
+    url = "https://www.cesde.edu.co/"
+    soup = get_soup(url)
+
+    menu = soup.find('nav', id=menu_id)
+    ul_principal = menu.find('ul', class_=ul_class)
+    menu_items = ul_principal.find_all('li', recursive=False)
+
+    for item in menu_items:
+        link = item.find('a')
+        title = link.get_text(strip=True) if link else None
+        href = link['href'] if link and 'href' in link.attrs else None
+
+        menu_entry, _ = update_or_create_entry(Menu, {'title': title}, {'link': href, 'active': True})
+
+        submenu_ul = item.find('ul')
+        if submenu_ul:
+            for subitem in submenu_ul.find_all('li', recursive=False):
+                sublink = subitem.find('a')
+                subtitle = sublink.get_text(strip=True) if sublink else None
+                subhref = sublink['href'] if sublink and 'href' in sublink.attrs else None
+
+                update_or_create_entry(SubMenu, {'menu': menu_entry, 'title': subtitle}, {'link': subhref, 'active': True})
+
+def scrape_social_networks(soup):
+    social_container = soup.find('div', {'area-label': 'network'})
+    if not social_container:
+        logger.warning("No se encontró el contenedor de redes sociales")
+        return
+
+    social_heading = social_container.find('h2', class_="elementor-heading-title elementor-size-default")
+    title = social_heading.get_text(strip=True)
+    if not social_heading:
+        logger.warning("No se encontró el título 'Redes sociales'")
+        return
+
+    menu_entry, _ = update_or_create_entry(Menu, {'title': title}, {'link': '', 'active': True})
+
+    for link in social_container.find_all('a', class_='social-element'):
+        title = link.get('title', '').replace('ir a ', '')
+        url = link.get('href', '')
+
+        if title and url:
+            logger.info(f"Encontrada red social: {title} - {url}")
+            update_or_create_entry(SubMenu, {'menu': menu_entry, 'title': title}, {'link': url, 'active': True})
+        else:
+            logger.warning(f"Faltan datos para red social: title={title}, url={url}")
 
 def scrape_who_we_are():
     url = "https://www.cesde.edu.co/nosotros/"
@@ -47,6 +95,32 @@ def scrape_who_we_are():
 
     update_or_create_entry(SubSubMenu, {'submenu': submenu_entry, 'title': title}, {'link': url, 'content': content, 'active': True})
 
+def scrape_academic_schedule():
+    url = "https://www.cesde.edu.co/aspirantes/"
+    soup = get_soup(url)
+
+    schedule_container = soup.find('div', class_='elementor-accordion-item')
+    if not schedule_container:
+        logger.warning("No se encontró el contenedor del cronograma académico")
+        return
+
+    accordion_item = schedule_container.find('a', class_='elementor-accordion-title')
+    if not accordion_item:
+        logger.warning("No se encontró el elemento de acordeón del cronograma académico")
+        return
+
+    title = accordion_item.get_text(strip=True)
+    content = str(accordion_item.find('div', class_='elementor-tab-content'))
+
+    menu_entry = Menu.objects.filter(title='Aspirantes').first()
+    if menu_entry:
+        logger.info("Menu 'Aspirantes' encontrado")
+    else:
+        logger.warning("No se encontró el Menu 'Aspirantes'")
+        return
+
+    update_or_create_entry(SubMenu, {'menu': menu_entry, 'title': title}, {'link': url, 'active': True})
+
 def scrape_location(url, location_title):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
@@ -63,7 +137,6 @@ def scrape_location(url, location_title):
         logger.warning(f"No se encontró el SubMenu con el título '{location_title}'")
         return
 
-    # Desactivar las entradas existentes específicas de este SubMenu antes de actualizar
     subsubmenus_to_update = SubSubMenu.objects.filter(submenu=submenu_entry)
     sub3menus_to_update = sub3menu.objects.filter(subsubmenu__submenu=submenu_entry)
 
@@ -75,7 +148,6 @@ def scrape_location(url, location_title):
         subsub_title = extract.get_text(strip=True) if extract else 'Sin título'
         logger.info(f"Procesando SubSubMenu: {subsub_title}")
 
-        # Actualizar o crear subsubmenu_entry
         subsubmenu_entry, created = update_or_create_entry(
             SubSubMenu,
             {'submenu': submenu_entry, 'title': subsub_title},
@@ -92,7 +164,6 @@ def scrape_location(url, location_title):
         link = programa_item.find('a')['href'] if programa_item.find('a') else ''
         logger.info(f"Procesando Sub3Menu: {title} - {content} - {link}")
 
-        # Actualizar o crear sub3menu_entry
         sub3menu_entry, created = update_or_create_entry(
             sub3menu,
             {'subsubmenu': subsubmenu_entry, 'title': title},
@@ -102,42 +173,8 @@ def scrape_location(url, location_title):
             continue
         logger.info(f"{'Creado' if created else 'Actualizado'} Sub3Menu: {title} - {content} - {link}")
 
-    # Eliminar las entradas específicas de este SubMenu que no se actualizaron (que ya no están activas)
     subsubmenus_to_update.filter(active=False).delete()
     sub3menus_to_update.filter(active=False).delete()
-
-def scrape_aspirantes():
-    url = "https://www.cesde.edu.co/aspirantes/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    table_content = soup.find('div', id='elementor-tab-content-1181')
-    if not table_content:
-        logger.warning(f"No se encontró la tabla de contenido en la URL: {url}")
-        return
-
-    # Encontrar la entrada de 'Cronograma académico' en SubMenu
-    cronograma_academico_entry = SubMenu.objects.filter(title='Cronograma académico').first()
-    if not cronograma_academico_entry:
-        logger.warning("No se encontró la entrada de 'Cronograma académico' en SubMenu")
-        return
-
-    rows = table_content.find_all('tr')
-    for row in rows:
-        cells = row.find_all('td')
-        if len(cells) != 2:
-            continue
-        date = cells[0].get_text(strip=True)
-        event = cells[1].get_text(strip=True)
-
-        logger.info(f"Procesando evento: {date} - {event}")
-
-        # Actualizar o crear subsubmenu_entry para eventos de aspirantes
-        subsubmenu_entry, created = update_or_create_entry(
-            SubSubMenu,
-            {'submenu': cronograma_academico_entry, 'title': date},
-            {'link': '', 'active': True, 'content': event}
-        )
 
 def scrape_sedes():
     scrape_location("https://www.cesde.edu.co/sedes/medellin/", "Medellín")
@@ -147,9 +184,25 @@ def scrape_sedes():
     scrape_location("https://www.cesde.edu.co/sedes/apartado/", "Apartadó")
     scrape_location("https://www.cesde.edu.co/sedes/bogota/", "Bogotá")
 
-def scrape_all():
+def scrape_all(full_scraping):
+    if full_scraping:
+        Menu.objects.all().update(active=False)
+        SubMenu.objects.all().update(active=False)
+        SubSubMenu.objects.all().update(active=False)
+        sub3menu.objects.all().update(active=False)
+    
+    url = "https://www.cesde.edu.co/"
+    soup = get_soup(url)
+
+    scrape_navigation('preheader-navigation', 'cesde-preheader-menu', full_scraping)
+    scrape_navigation('desktop-navigation', 'cesde-menu', full_scraping)
+    scrape_social_networks(soup)
+    scrape_who_we_are()
+    scrape_academic_schedule()
     scrape_sedes()
-    scrape_aspirantes()
-    scrape_who_we_are()  
 
-
+    if full_scraping:
+        Menu.objects.filter(active=False).delete()
+        SubMenu.objects.filter(active=False).delete()
+        SubSubMenu.objects.filter(active=False).delete()
+        sub3menu.objects.filter(active=False).delete()

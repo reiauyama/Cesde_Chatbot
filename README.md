@@ -1,5 +1,6 @@
 # **EJECUCION GENERAL (set-up)**
-- Si consideramos que estas ubicado en la carpeta raiz del proyecto <chatbotProject> se debe levantar en entorno virtual correcto para su ejecucion con el siguiente comando **'.\venv\Scripts\activate'** , de cualquier forma, solo es requerida la ejecucion del script llamado 'activate' en la siguiente ubicacion chatbotProject>venv>Scripts>activate
+- Si consideramos que estas ubicado en la carpeta raiz del proyecto <chatbotProject> se debe levantar en entorno **virtualenv venv** para crear el entorno virtual (importante en el directorio raiz del proyecto) y para su ejecucion con el siguiente comando **'.\venv\Scripts\activate'** , de cualquier forma, solo es requerida la ejecucion del script llamado 'activate' en la siguiente ubicacion chatbotProject>venv>Scripts>activate
+- Una vez activo el entorno virtual es nesesario instalar sus dependencias, ejecute **pip install -r requirements.txt** esto es de un archivo que recolecta todas las librerias/dependencias usadas y en que version
 - Levantar el servidor de base de datos local (XAMPP)  [Apache y MySQL]
 - Realizar migraciones, 'python manage.py makemigrations' -> 'python manage.py migrate'
 - Ejecutar el web scraping 'python manage.py scrape'
