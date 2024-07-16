@@ -28,10 +28,8 @@ class SubSubMenu(models.Model):
         return self.title
 class sub3menu(models.Model):
     subsubmenu = models.ForeignKey(SubSubMenu, on_delete=models.CASCADE)
-    escuela = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
     content = models.TextField()
     link = models.URLField()
     active = models.BooleanField(default=True)
 
-    class Meta:
-        unique_together = ('subsubmenu', 'escuela')

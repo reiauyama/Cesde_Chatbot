@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 django.setup()
 
+
 # Importación de los modelos de Django
 from scraper.models import SubMenu, SubSubMenu, Menu, sub3menu
 
@@ -77,7 +78,7 @@ def process_query(query):
             normalized_best_match = normalize_text(best_match[0])
             
             # Búsqueda en la tabla Menu
-            menu_items = Menu.objects.filter(title__icontains=best_match[0])
+            menu_items = Menu.objects.filter(title__icontains=best_match [0])
             if menu_items.exists():
                 related_info = SubMenu.objects.filter(menu=menu_items.first())
                 return '\n'.join([f"{item.id}: {item.title}" for item in related_info])
