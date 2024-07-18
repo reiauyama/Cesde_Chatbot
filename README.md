@@ -11,7 +11,7 @@ carpeta en la cual hay un script que se encarga de recopilar las funciones donde
 - La linea **'python manage.py scrape** ejecuta el scraping completo con las funciones recopiladas en 'management/scrape.py'
 # **CHATBOT**
 Info: La parte que se encarga de el modelo que respondera las preguntas de los usuarios, esta en su propia actividad 'nltk_app' mas especificamente, la parte principal esta en 'views.py'
-## Ejecutar scraping
+## Ejecutar Chatbot
 - En la version en la que se redacta esto, el comando de ejecucion del chatbot es **python nltk_app/console_chatbot.py**
 
 # NOTA:
