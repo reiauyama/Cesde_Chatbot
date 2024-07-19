@@ -4,6 +4,9 @@
 - Levantar el servidor de base de datos local (XAMPP)  [Apache y MySQL]
 - Realizar migraciones, 'python manage.py makemigrations' -> 'python manage.py migrate'
 - Ejecutar el web scraping 'python manage.py scrape'
+- Luego, posicionarse en **chatbot-frontend** con 'cd chatbot-frontend para instalar los modulos y dependencias del front con 'npm install'
+- Correr el backend posicionandose en la raiz del proyecto y correr 'python manage.py runserver'
+- Posteriormente, correr el frontend posicionandose en la carpeta chatbot-frontend y correr npm start
 # **SCRAPING**
 Info: hay una aplicacion dentro del proyecto llamada 'scraper', esta aplicacion tiene dentro scripts como 'scraper.py', 'scraperProgramasSedes.py' etc. tambien en esta aplicacion se encuentra la carpeta 'management'
 carpeta en la cual hay un script que se encarga de recopilar las funciones donde se hace el scraping para ejecutar todas los scrapings con solo un comando
@@ -18,9 +21,15 @@ Info: La parte que se encarga de el modelo que respondera las preguntas de los u
 - Si se siguen estos pasos de ejecucion no deberia de dar problemas
 ### Lista de comandos
 - virtualenv venv
-- pip install -r requirements.txt
 - .\venv\Scripts\activate
+- pip install -r requirements.txt
 - python manage.py makemigrations
 - python manage.py migrate
 - python manage.py scrape
-- python nltk_app/console_chatbot.py
+- cd chatbot-frontend
+- npm install
+- npm install axios
+- cd ..
+- python manage.py runserver
+- cd chatbot-frontend
+- npm start
