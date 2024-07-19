@@ -32,7 +32,6 @@ numpy==1.26.4
 opt-einsum==3.3.0
 optree==0.12.1
 packaging==24.1
-pip==24.1
 protobuf==4.25.3
 Pygments==2.18.0
 regex==2024.5.15
