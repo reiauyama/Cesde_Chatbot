@@ -6,6 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
+ 
 def update_or_create_entry(model, filter_kwargs, update_kwargs):
     try:
         entry, created = model.objects.update_or_create(
@@ -176,6 +177,40 @@ def scrape_location(url, location_title):
     subsubmenus_to_update.filter(active=False).delete()
     sub3menus_to_update.filter(active=False).delete()
 
+def estudiantesLinks():
+    url = "https://www.cesde.edu.co/estudiantes/"
+    soup = get_soup(url)
+
+    service_items = soup.find_all('div', class_='service-item')
+
+        # Crear una lista para almacenar los datos extraídos
+
+    for item in service_items:
+        link_tag = item.find('a')
+        if link_tag:
+            link = link_tag['href']
+            title = link_tag.find_next('h3').get_text(strip=True)
+            menu_entry = Menu.objects.filter(title='Estudiantes').first()
+            update_or_create_entry(SubMenu, {'menu': menu_entry, 'title': title}, {'link': url, 'active': True})
+ 
+    # Guardar los datos en la base de datos usando Django ORM
+    try:
+        menu_entry = Menu.objects.get(title="Estudiantes")
+    except Menu.DoesNotExist:
+        print("No se encontró la entrada de menú 'Estudiantes'")
+
+def reglamentos():
+    url = "https://www.cesde.edu.co/estudiantes/"
+    soup = get_soup(url)
+
+    reglamentos_items = soup.find('div', class_='elementor-column elementor-col-100 elementor-top-column elementor-element elementor-element-a00777a')
+    reglamentos_title= reglamentos_items.find('h2', class_='"elementor-heading-title elementor-size-default')
+    print(reglamentos_title)
+    title =reglamentos_title.get_text(strip=True)
+    menu_entry = Menu.objects.filter(title='Estudiantes').first()
+    update_or_create_entry(SubMenu, {'menu': menu_entry, 'title': title}, {'link': url, 'active': True})
+    
+        
 def scrape_sedes():
     scrape_location("https://www.cesde.edu.co/sedes/medellin/", "Medellín")
     scrape_location("https://www.cesde.edu.co/sedes/bello/", "Bello")
@@ -194,12 +229,14 @@ def scrape_all(full_scraping):
     url = "https://www.cesde.edu.co/"
     soup = get_soup(url)
 
-    scrape_navigation('preheader-navigation', 'cesde-preheader-menu', full_scraping)
-    scrape_navigation('desktop-navigation', 'cesde-menu', full_scraping)
-    scrape_social_networks(soup)
-    scrape_who_we_are()
-    scrape_academic_schedule()
-    scrape_sedes()
+    #scrape_navigation('preheader-navigation', 'cesde-preheader-menu', full_scraping)
+    #scrape_navigation('desktop-navigation', 'cesde-menu', full_scraping)
+    #scrape_social_networks(soup)
+    #scrape_who_we_are()
+    #scrape_academic_schedule()
+    #scrape_sedes()
+    #estudiantesLinks()
+    reglamentos()
 
     if full_scraping:
         Menu.objects.filter(active=False).delete()

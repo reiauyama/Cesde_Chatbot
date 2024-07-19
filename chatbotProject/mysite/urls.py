@@ -15,10 +15,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
-from scraper.views import hello
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from nltk_app.views import chatbot_query
+
+from nltk_app.views import MenuViewSet, SubMenuViewSet, SubSubMenuViewSet, sub3menuViewSet
+
+router = DefaultRouter()
+router.register(r'menus', MenuViewSet)
+router.register(r'submenus', SubMenuViewSet)
+router.register(r'subsubmenus', SubSubMenuViewSet)
+router.register(r'sub3menus', sub3menuViewSet)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', hello)
+    path('api/', include(router.urls)),
+    path('api/chatbot/', chatbot_query, name='chatbot-query')
 ]

@@ -2,6 +2,7 @@ from django.shortcuts import render
 import os
 import sys
 import django
+
 from fuzzywuzzy import process
 import nltk
 
@@ -10,13 +11,39 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 django.setup()
 
-
-# Importación de los modelos de Django
-from scraper.models import SubMenu, SubSubMenu, Menu, sub3menu
-
 # Descargar recursos necesarios de NLTK
 nltk.download('punkt')
 nltk.download('wordnet')
+
+# Importación de los modelos de Django
+from scraper.models import SubMenu, SubSubMenu, Menu, sub3menu
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from rest_framework import viewsets
+from nltk_app.serializers import MenuSerializer, SubMenuSerializer, SubSubMenuSerializer, sub3menuSerializer
+
+@api_view(['POST'])
+def chatbot_query(request):
+    query = request.data.get('query')
+    response = process_query(query)
+    return JsonResponse({'response': response})
+
+# Inicializar serializers
+class MenuViewSet(viewsets.ModelViewSet):
+    queryset = Menu.objects.all()
+    serializer_class = MenuSerializer
+
+class SubMenuViewSet(viewsets.ModelViewSet):
+    queryset = SubMenu.objects.all()
+    serializer_class = SubMenuSerializer
+
+class SubSubMenuViewSet(viewsets.ModelViewSet):
+    queryset = SubSubMenu.objects.all()
+    serializer_class = SubSubMenuSerializer
+
+class sub3menuViewSet(viewsets.ModelViewSet):
+    queryset = sub3menu.objects.all()
+    serializer_class = sub3menuSerializer
 
 # Función para normalizar el texto
 def normalize_text(text):
@@ -101,11 +128,3 @@ def process_query(query):
                 return '\n'.join([f"{item.id}: {item.content}" for item in sub3menu_items])
 
         return 'No se encontró información relacionada.'
-
-# Loop principal del chatbot
-while True:
-    user_input = input("Tú: ")
-    if user_input.lower() == 'salir':
-        break
-    response = process_query(user_input)
-    print(f"Bot:\n{response}")
